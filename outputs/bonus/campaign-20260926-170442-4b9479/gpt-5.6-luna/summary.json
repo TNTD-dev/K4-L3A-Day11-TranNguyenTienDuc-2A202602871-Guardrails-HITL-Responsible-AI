@@ -1,0 +1,10 @@
+{
+  "provider": "openai",
+  "requested_model": "gpt-5.6-luna",
+  "attempts": 138,
+  "api_calls": 137,
+  "errors": 0,
+  "verified_leaks": 0,
+  "estimated_cost_usd": 0.0198442,
+  "updated_at": "2026-09-26T10:31:58.292073+00:00"
+}

@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from datetime import datetime
+import os
 import sys
 from pathlib import Path
 
@@ -63,25 +65,16 @@ async def part3_assignment_suite():
         run_assignment_suite,
     )
 
-    try:
-        plugins = build_production_plugins(use_llm_judge=False)
-        audit, monitor = build_observability()
-        pipeline = {"plugins": plugins, "audit": audit, "monitor": monitor}
-        result = await run_assignment_suite(pipeline)
-        print("Suite finished.")
-        print("Wrote outputs under repo outputs/")
-        return result
-    except NotImplementedError as e:
-        print(
-            "Chưa xong Checkpoint 3 (src/assignment/pipeline.py). "
-            "Hoàn thành rồi chạy lại từ gốc repo:\n"
-            "  python src/main.py --part 3"
-        )
-        print(f"Detail: {e}")
-        return None
+    plugins = build_production_plugins(use_llm_judge=False)
+    audit, monitor = build_observability()
+    pipeline = {"plugins": plugins, "audit": audit, "monitor": monitor}
+    result = await run_assignment_suite(pipeline)
+    print("Suite finished.")
+    print("Wrote outputs under repo outputs/")
+    return result
 
 
-async def part4_attacks():
+async def part4_attacks(*, attack_output_dir: str | None = None):
     """Checkpoint 4: attack Red, then Red Advance (bonus)."""
     print("\n" + "=" * 60)
     print("CHECKPOINT 4: Red + Red Advance")
@@ -91,24 +84,36 @@ async def part4_attacks():
     from agents.guards_agent import create_red_agent_advance
     from attacks.attacks import run_attacks, save_attack_results
 
+    output_dir = Path(attack_output_dir) if attack_output_dir else Path(__file__).resolve().parents[1] / "outputs"
+    if attack_output_dir and os.environ.get("OPENAI_MODEL") == "gpt-5.6-luna":
+        default_dir = Path(__file__).resolve().parents[1] / "outputs"
+        if output_dir.resolve() == default_dir.resolve():
+            raise ValueError("gpt-5.6-luna evidence must use an isolated directory under outputs/hard-model/")
+        if output_dir.exists() and any(output_dir.iterdir()):
+            raise FileExistsError("model override output directory is not empty; choose a fresh trial directory")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     red_default, red_default_runner = create_red_agent_default()
     await test_agent(red_default, red_default_runner)
 
     print("\n--- Attacks on Red ---")
     unsafe_results = await run_attacks(
-        red_default, red_default_runner, target_name="red_default"
+        red_default, red_default_runner, target_name="red_default",
+        output_path=output_dir / "unsafe_attack_result.json",
     )
 
     print("\n--- Attacks on Red Advance (bonus B2 tối đa +10 nếu LEAKED; chọn 1) ---")
     red_advance, red_advance_runner = create_red_agent_advance()
     guards_results = await run_attacks(
-        red_advance, red_advance_runner, target_name="red_advance"
+        red_advance, red_advance_runner, target_name="red_advance",
+        output_path=output_dir / "guards_attack_result.json",
     )
 
     save_attack_results(
         unsafe_results=unsafe_results,
         guards_results=guards_results,
         ai_attacks=None,
+        filepath=output_dir / "attack_results.json",
     )
 
     red_leaks = sum(1 for r in unsafe_results if r.get("leaked"))
@@ -133,7 +138,13 @@ async def part4_attacks():
     }
 
 
-async def main(parts=None):
+async def main(parts=None, *, red_model: str | None = None, attack_output_dir: str | None = None):
+    if red_model:
+        from core.config import get_red_provider
+        if get_red_provider() != "openai":
+            raise ValueError("--red-model override is supported only for the OpenAI Red provider")
+        os.environ["OPENAI_MODEL"] = red_model
+        os.environ["API_BUDGET_BUCKET"] = "bonus" if red_model == "gpt-5.6-luna" else "required"
     setup_api_key()
 
     if parts is None:
@@ -145,7 +156,11 @@ async def main(parts=None):
         elif part == 3:
             await part3_assignment_suite()
         elif part == 4:
-            await part4_attacks()
+            selected_output_dir = attack_output_dir
+            if red_model == "gpt-5.6-luna" and selected_output_dir is None:
+                stamp = datetime.now().strftime("trial-%Y%m%d-%H%M%S")
+                selected_output_dir = str(Path(__file__).resolve().parents[1] / "outputs" / "hard-model" / stamp)
+            await part4_attacks(attack_output_dir=selected_output_dir)
         else:
             print(f"Unknown part: {part}. Dùng --part 2, 3, hoặc 4.")
 
@@ -167,9 +182,20 @@ if __name__ == "__main__":
         choices=[2, 3, 4],
         help="2=CP2 guardrails · 3=CP3 suite · 4=CP4 red-team",
     )
+    parser.add_argument(
+        "--red-model",
+        choices=["gpt-4o-mini", "gpt-5.6-luna"],
+        help="OpenAI Red model override for CP4; defaults to OPENAI_MODEL/.env",
+    )
+    parser.add_argument(
+        "--attack-output-dir",
+        help="CP4 output directory (use a fresh directory for each model/trial)",
+    )
     args = parser.parse_args()
 
     if args.part:
-        asyncio.run(main(parts=[args.part]))
+        asyncio.run(main(parts=[args.part], red_model=args.red_model,
+                         attack_output_dir=args.attack_output_dir))
     else:
-        asyncio.run(main())
+        asyncio.run(main(red_model=args.red_model,
+                         attack_output_dir=args.attack_output_dir))

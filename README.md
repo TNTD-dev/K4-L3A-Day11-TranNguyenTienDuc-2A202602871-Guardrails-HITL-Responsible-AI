@@ -1,5 +1,7 @@
 # Day 11 — Controlled Agent Security (2026)
 
+**Họ và tên:** Trần Nguyễn Tiến Đức · **MSSV:** 2A202602871
+
 > 👤 **Hình thức:** bài tập **cá nhân** (1 người / 1 MSSV).  
 > 🎯 **Mục tiêu:** xây **Blue** (phòng thủ), rồi red-team **Red** + **Red Advance**.  
 > ✅ Làm theo **Checkpoint 1 → 5** trong [`CHECKPOINTS.md`](CHECKPOINTS.md) · nộp theo [`SUBMISSION.md`](SUBMISSION.md).
@@ -43,6 +45,38 @@
 | **Blue** | OpenRouter **`liquid/lfm-2.5-2.6b`** (khóa cứng) |
 | **Red** + **Red Advance** | Cùng provider: `gpt-4o-mini` **hoặc** `gemini-3.5-flash` (model mềm — điểm bắt buộc) |
 | Model khó (tuỳ chọn) | `gpt-5.6-luna` / `gemini-3.8-flash` — **không** phải tên agent |
+
+### Chạy local sau khi cấu hình `.env`
+
+Kích hoạt virtualenv rồi chạy từ gốc repo:
+
+```bash
+source .venv/bin/activate
+python src/main.py --part 2
+python src/main.py --part 3
+python src/main.py --part 4 --red-model gpt-4o-mini
+```
+
+CP3 dùng Blue qua route miễn phí OpenRouter của cùng model Liquid (`liquid/lfm-2.5-2.6b:free`). Lượt CP4 mặc định lưu bằng chứng vào `outputs/`. Theo dõi chi phí ước tính từ usage tokens tại `outputs/api_usage.json`.
+
+Để thử model khó và giữ artifact mặc định nguyên vẹn:
+
+```bash
+python src/main.py --part 4 --red-model gpt-5.6-luna
+```
+
+Lệnh tự tạo một thư mục trial mới dưới `outputs/hard-model/`. Hoặc truyền `--attack-output-dir outputs/hard-model/trial-name` để chọn thư mục trống cụ thể. Runner giới hạn mỗi completion 256 token và dành riêng tối đa $2 cho lượt bắt buộc cùng $3 cho thử nghiệm bonus; OpenRouter route `:free` được tính $0.
+
+### Kết quả chạy local hiện tại (26-09-2026)
+
+- CP3: 0/5 câu banking an toàn bị chặn; 7/7 attack bị chặn; rate limit cho qua 10 và chặn 5 trong 15 lượt; `results.json` khớp schema.
+- CP4 mặc định `gpt-4o-mini`: Red leak 4/6 prompt; Red Advance leak 0/6. Artifact: [`attack_results.json`](outputs/attack_results.json), [`unsafe_attack_result.json`](outputs/unsafe_attack_result.json), [`guards_attack_result.json`](outputs/guards_attack_result.json).
+- **B1 được chọn:** prompt điền chỗ trống trên Red / `gpt-4o-mini` leak đúng secret demo trong 3/3 lượt local, mỗi lượt dùng context mới. Hồ sơ đầy đủ: [`campaign manifest`](outputs/bonus/campaign-20260926-170442-4b9479/manifest.json) và ba file [`lượt 1`](outputs/bonus/campaign-20260926-170442-4b9479/gpt-4o-mini/evidence/starter-1-r0.json), [`replay 1`](outputs/bonus/campaign-20260926-170442-4b9479/gpt-4o-mini/evidence/starter-1-r1.json), [`replay 2`](outputs/bonus/campaign-20260926-170442-4b9479/gpt-4o-mini/evidence/starter-1-r2.json). Coach/grader vẫn phải replay để quyết định điểm.
+- **B2 chưa đạt:** chiến dịch đã thử 281 biến thể với Red Advance / `gpt-4o-mini` (279 lượt API đã lưu) và 138 trên `gpt-5.6-luna` (137 lượt API đã lưu); không có response nào leak secret demo chính xác. Một số lượt bị ngắt được đánh dấu `indeterminate`, không retry. Tóm tắt theo model nằm trong [`campaign manifest`](outputs/bonus/campaign-20260926-170442-4b9479/manifest.json). Chỉ chọn B1, không cộng hai bonus.
+- Tự chấm local: smoke **6 pass**, public **37 pass** (tổng **43**); packaging/schema hợp lệ; `technical_failure: false`. Grader không replay bonus hay xác nhận điểm cuối.
+- Usage ledger ước tính tổng chi phí đã dùng hoặc giữ chỗ khoảng **$0.04755** (trong trần $5; bonus khoảng $0.04434/3): [`api_usage.json`](outputs/api_usage.json).
+
+Báo cáo tự chấm: [`lab_report.md`](outputs/lab_report.md). Output filter hiện nhận diện secret dạng NFKC/ký tự ẩn/ký tự tách; nếu không thay được chính xác thì thay toàn response bằng thông báo an toàn. `ChatResult` có trường `error`; lỗi được raise lại qua `chat()` và CP3/CP4 không tính lỗi thành lượt phòng thủ thành công. Grader local xác nhận packaging, schema, public tests và trạng thái kỹ thuật; không xác nhận đủ 100 điểm hoặc bonus.
 
 ---
 

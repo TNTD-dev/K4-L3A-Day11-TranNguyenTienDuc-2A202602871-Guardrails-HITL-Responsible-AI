@@ -17,6 +17,7 @@ Hai tầng model (không trộn):
 """
 from __future__ import annotations
 
+import getpass
 import os
 from pathlib import Path
 
@@ -237,7 +238,7 @@ def is_harder_model() -> bool:
 def setup_api_key():
     """Ensure keys for Blue (OpenRouter) + Red / Red Advance (OpenAI or Gemini)."""
     if not get_openrouter_api_key():
-        os.environ["OPENROUTER_API_KEY"] = input(
+        os.environ["OPENROUTER_API_KEY"] = getpass.getpass(
             "Enter OpenRouter API Key (Blue): "
         ).strip()
     print(f"Blue  — {blue_provider_label()}  [LOCKED]")
@@ -246,12 +247,12 @@ def setup_api_key():
     model = get_red_model()
     if red == PROVIDER_GEMINI:
         if not os.environ.get("GOOGLE_API_KEY", "").strip():
-            os.environ["GOOGLE_API_KEY"] = input("Enter Google API Key (Red): ").strip()
+            os.environ["GOOGLE_API_KEY"] = getpass.getpass("Enter Google API Key (Red): ").strip()
         os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
         print(f"Red / Red Advance  — gemini:{model}")
     else:
         if not get_openai_api_key():
-            os.environ["OPENAI_API_KEY"] = input("Enter OpenAI API Key (Red): ").strip()
+            os.environ["OPENAI_API_KEY"] = getpass.getpass("Enter OpenAI API Key (Red): ").strip()
         print(f"Red / Red Advance  — openai:{model}")
 
     print(

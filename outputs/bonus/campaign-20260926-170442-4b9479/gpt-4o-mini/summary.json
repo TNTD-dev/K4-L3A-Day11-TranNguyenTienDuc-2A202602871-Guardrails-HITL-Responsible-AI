@@ -1,0 +1,10 @@
+{
+  "provider": "openai",
+  "requested_model": "gpt-4o-mini",
+  "attempts": 284,
+  "api_calls": 282,
+  "errors": 0,
+  "verified_leaks": 3,
+  "estimated_cost_usd": 0.0184296,
+  "updated_at": "2026-09-26T10:31:58.289105+00:00"
+}
